@@ -59,7 +59,7 @@ Authentication routes are `/login` and `/signup`. The current account flow is a 
 
 For Vercel, import the repository and use `pnpm build` as the build command with `dist/public` as the output directory. The included `vercel.json` already contains the matching build and SPA fallback configuration.
 
-The included FastAPI analysis service deploys on Render with `backend/Dockerfile`. It calls Gemini on every request, returns structured risk data, and does not persist submitted inputs. Full Vercel and Render settings are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+The included FastAPI analysis service deploys on Render with `render.Dockerfile` from the repository root. It calls Gemini on every request, returns structured risk data, and does not persist submitted inputs. Full Vercel and Render settings are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Push this project to GitHub
 

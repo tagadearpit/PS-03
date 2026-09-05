@@ -28,8 +28,8 @@ Create a new Render Web Service connected to the same repository. Use these sett
 | Setting | Value |
 | --- | --- |
 | Runtime | Docker |
-| Dockerfile path | `backend/Dockerfile` |
-| Docker build context | `backend` |
+| Dockerfile path | `render.Dockerfile` |
+| Docker build context | `.` |
 | Health check path | `/health` |
 | Port | `8000` (the Dockerfile exposes it) |
 | Plan | Any plan appropriate for your traffic; the free instance may sleep when idle |
@@ -44,6 +44,8 @@ Add these Render environment variables:
 | `LOG_LEVEL` | No | `INFO` |
 
 The backend uses `google-genai` structured output and calls Gemini for every manual submission to `/api/v1/analyze`: image uploads, SMS/text, URLs, and camera submissions. Requests are processed in memory and are not written to a database.
+
+When entering these values manually in Render, type only `render.Dockerfile` in **Dockerfile Path** and only `.` in **Docker Build Context**. Do not type the explanatory words `repository root` into either field. Leave **Root Directory** blank unless Render requires it; if a root directory is required, use `/` or `.` according to the Render UI.
 
 ## 3. Verify the connection
 

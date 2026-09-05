@@ -46,8 +46,8 @@ LOG_LEVEL=INFO
 | Vercel | Build command | `pnpm build` |
 | Vercel | Output directory | `dist/public` |
 | Render | Runtime | Docker |
-| Render | Dockerfile path | `backend/Dockerfile` |
-| Render | Docker build context | `backend` |
+| Render | Dockerfile path | `render.Dockerfile` |
+| Render | Docker build context | `.` |
 | Render | Health check | `/health` |
 | Render | Port | `8000` |
 
