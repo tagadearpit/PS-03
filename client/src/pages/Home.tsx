@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { analyzeWithBackend } from "@/lib/api";
+import { getAuthUser } from "./Auth";
 
 type InputMode = "image" | "text" | "url" | "camera";
 type Severity = "safe" | "suspicious" | "high";
@@ -224,6 +225,7 @@ export default function Home() {
   const [activityCount, setActivityCount] = useState(7);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -245,6 +247,9 @@ export default function Home() {
   }, [cameraOn]);
 
   const fileLabel = useMemo(() => selectedFile?.name ?? "No file selected", [selectedFile]);
+  const authUser = getAuthUser();
+  const displayName = authUser?.name?.trim() || "there";
+  const initials = displayName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   const setFile = useCallback((file?: File) => {
     if (!file || !file.type.startsWith("image/")) {
@@ -262,6 +267,14 @@ export default function Home() {
   };
 
   const analyze = async (nextResult?: AnalysisResult) => {
+    if (!nextResult) {
+      if (mode === "text" && textValue.trim().length < 8) { toast.error("Paste the complete message first", { description: "Include the sender, request, and any link or urgency language." }); return; }
+      if (mode === "url") {
+        const candidate = urlValue.trim();
+        try { const parsed = new URL(candidate); if (!["http:", "https:"].includes(parsed.protocol)) throw new Error(); } catch { toast.error("Enter a valid http or https URL", { description: "Example: https://example.com/verify-payment" }); return; }
+      }
+      if (mode === "camera" && !cameraOn) { toast.error("Start the camera before scanning", { description: "Allow camera access, point at a QR code, then analyze the captured frame." }); return; }
+    }
     setAnalyzing(true);
     if (nextResult) {
       window.setTimeout(() => {
@@ -279,12 +292,21 @@ export default function Home() {
       return;
     }
     try {
-      const backendResult = mode === "image" && selectedFile
-        ? await analyzeWithBackend({ inputType: "image", file: selectedFile })
-        : await analyzeWithBackend({
-            inputType: mode === "camera" ? "camera" : mode === "text" ? "text" : "url",
-            content: mode === "text" ? textValue : mode === "url" ? urlValue : "Live camera QR scan submitted for review.",
-          });
+      let backendResult;
+      if (mode === "image" && selectedFile) {
+        backendResult = await analyzeWithBackend({ inputType: "image", file: selectedFile });
+      } else if (mode === "camera" && videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth || 1280;
+        canvas.height = video.videoHeight || 720;
+        canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+        if (!frame) throw new Error("Could not capture a camera frame");
+        backendResult = await analyzeWithBackend({ inputType: "image", file: new File([frame], "camera-scan.jpg", { type: "image/jpeg" }), source: "manual" });
+      } else {
+        backendResult = await analyzeWithBackend({ inputType: mode === "text" ? "text" : "url", content: mode === "text" ? textValue.trim() : urlValue.trim() });
+      }
       setResult({ ...backendResult, actionDetail: backendResult.action_detail, timestamp: backendResult.timestamp, threats: backendResult.threats.map((threat) => ({ ...threat, icon: threat.severity === "safe" ? CheckCircle2 : threat.severity === "suspicious" ? AlertTriangle : ShieldAlert })) });
       setActivityCount((count) => count + 1);
       setToastMessage("Gemini analysis complete");
@@ -334,17 +356,17 @@ export default function Home() {
         <div className="rail-section-label">Workspace</div>
         <nav className="rail-nav" aria-label="Primary navigation">
           <button className="rail-link active"><Gauge size={17} /><span>Verification studio</span><span className="rail-count">{activityCount}</span></button>
-          <button className="rail-link" onClick={() => toast.info("Activity history is available in the studio below.")}><Inbox size={17} /><span>Activity history</span></button>
-          <button className="rail-link" onClick={() => toast.info("Rules are ready to connect to your risk policy.")}><FileSearch size={17} /><span>Risk rules</span><span className="rail-new">New</span></button>
+          <button className="rail-link" onClick={() => document.querySelector(".history-section")?.scrollIntoView({ behavior: "smooth" })}><Inbox size={17} /><span>Activity history</span></button>
+          <button className="rail-link" onClick={() => toast.info("Active risk rules", { description: "URL reputation, urgency language, payment intent, QR destination, and impersonation cues are enabled." })}><FileSearch size={17} /><span>Risk rules</span><span className="rail-new">5 active</span></button>
         </nav>
         <div className="rail-section-label rail-section-spaced">System</div>
         <nav className="rail-nav" aria-label="System navigation">
           <button className="rail-link" onClick={() => toast.info("API connection is healthy.")}><Activity size={17} /><span>System health</span></button>
-          <button className="rail-link" onClick={() => toast.info("Settings are coming soon.")}><MoreHorizontal size={17} /><span>More settings</span></button>
+          <button className="rail-link" onClick={() => toast.info("Workspace settings", { description: "Use the navigation theme control to change appearance. Your session remains private to this browser." })}><MoreHorizontal size={17} /><span>More settings</span></button>
         </nav>
         <div className="rail-bottom">
           <div className="rail-help"><div className="help-icon"><HelpCircle size={17} /></div><div><strong>Need a hand?</strong><span>Read the safety guide</span></div><ArrowUpRight size={15} /></div>
-          <button className="profile-button"><div className="avatar">AR</div><div className="profile-copy"><strong>Alex Rivera</strong><span>Safety analyst</span></div><ChevronDown size={15} /></button>
+          <button className="profile-button"><div className="avatar">{initials}</div><div className="profile-copy"><strong>{displayName}</strong><span>Safety analyst</span></div><ChevronDown size={15} /></button>
         </div>
       </aside>
 
@@ -356,7 +378,7 @@ export default function Home() {
 
         <main className="content" ref={contentRef}>
           <section className="welcome-row reveal">
-            <div><p className="eyebrow">THURSDAY, 04 SEPTEMBER 2026</p><h1>Good morning, Alex <span className="wave">✦</span></h1><p className="welcome-copy">Review a payment, message, or QR code before it costs you.</p></div>
+            <div><p className="eyebrow">THURSDAY, 04 SEPTEMBER 2026</p><h1>Good morning, {displayName} <span className="wave">✦</span></h1><p className="welcome-copy">Review a payment, message, or QR code before it costs you.</p></div>
             <div className="welcome-actions"><div className="view-switcher"><button className="view-option selected"><span className="view-dot" />Analyst view</button><button className="view-option" onClick={() => toast.info("Observer view is a read-only mode.")}>Observer</button></div><button className="quick-audit" onClick={() => document.getElementById("studio")?.scrollIntoView({ behavior: "smooth" })}><Zap size={15} /> Quick audit</button></div>
           </section>
 
@@ -378,7 +400,7 @@ export default function Home() {
                 </div>}
                 {mode === "text" && <div className="text-input-wrap"><div className="field-meta"><span className="field-label"><MessageSquareText size={15} /> Message content</span><span>{textValue.length}/2,000</span></div><textarea autoFocus value={textValue} onChange={(event) => setTextValue(event.target.value)} placeholder="Paste the SMS or WhatsApp message here…\n\nTip: include the sender name and any link exactly as received." /><div className="textarea-footer"><span><ClipboardPaste size={14} /> Ctrl + V to paste</span><button className="mini-clear" onClick={() => setTextValue("")}>Clear</button></div></div>}
                 {mode === "url" && <div className="url-input-wrap"><div className="url-icon"><Link2 size={21} /></div><div className="url-field"><label htmlFor="url-input">Payment or website link</label><input id="url-input" autoFocus value={urlValue} onChange={(event) => setUrlValue(event.target.value)} placeholder="https://example.com/verify-payment" /></div><button className="paste-button" onClick={async (event) => { event.stopPropagation(); try { setUrlValue(await navigator.clipboard.readText()); toast.success("Link pasted"); } catch { toast.info("Use Ctrl + V to paste a link"); } }}>Paste</button><div className="url-helper"><LockKeyhole size={13} /> We never open or store the link you submit.</div></div>}
-                {mode === "camera" && <div className={`camera-stage ${cameraOn ? "camera-active" : ""}`}>{cameraOn ? <><video ref={videoRef} muted playsInline className="camera-video" /><div className="scan-frame"><span /><span /><span /><span /></div><div className="camera-status"><span className="pulse-dot" />Looking for a UPI QR code…</div></> : <><div className="camera-placeholder"><Camera size={27} /><span>{modeMeta.title}</span><small>{modeMeta.description}</small><button className="primary-button compact" onClick={(event) => { event.stopPropagation(); toggleCamera(); }}><Camera size={15} /> Start camera</button></div></>}{cameraError && <div className="camera-error">{cameraError}</div>}</div>}
+                {mode === "camera" && <div className={`camera-stage ${cameraOn ? "camera-active" : ""}`}>{cameraOn ? <><video ref={videoRef} muted playsInline className="camera-video" /><canvas ref={canvasRef} hidden /><div className="scan-frame"><span /><span /><span /><span /></div><div className="camera-status"><span className="pulse-dot" />Looking for a UPI QR code…</div></> : <><div className="camera-placeholder"><Camera size={27} /><span>{modeMeta.title}</span><small>{modeMeta.description}</small><button className="primary-button compact" onClick={(event) => { event.stopPropagation(); toggleCamera(); }}><Camera size={15} /> Start camera</button></div></>}{cameraError && <div className="camera-error">{cameraError}</div>}</div>}
               </div>
               <div className="panel-footer"><div className="privacy-note"><LockKeyhole size={14} /><span>Processed securely <strong>in memory</strong></span></div><button className="primary-button" onClick={() => analyze()} disabled={analyzing}>{analyzing ? <><span className="button-spinner" /> Checking signals…</> : <><ScanLine size={16} /> Analyze input <ArrowUpRight size={15} /></>}</button></div>
               <div className="input-capabilities"><span><Check size={12} /> OCR extraction</span><span><Check size={12} /> QR parsing</span><span><Check size={12} /> Intent signals</span></div>
@@ -394,9 +416,9 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="history-section card reveal"><div className="history-heading"><div><div className="section-kicker"><span className="kicker-bar" /> RECENT ACTIVITY</div><h3>Your latest checks</h3></div><button className="text-button" onClick={() => toast.info("Showing the latest 3 checks in this demo.")}>View all <ArrowUpRight size={14} /></button></div><div className="history-table"><div className="history-header"><span>Source</span><span>Item</span><span>Result</span><span>Score</span><span>Checked</span><span /></div>{historyRows.map((row) => <div className="history-row" key={row.name}><span><span className={`source-icon source-${row.type.toLowerCase()}`}>{row.type === "URL" ? <Link2 size={14} /> : row.type === "QR" ? <QrCode size={14} /> : <MessageSquareText size={14} />}</span>{row.type}</span><strong>{row.name}</strong><span><span className={`table-result result-${row.result.toLowerCase()}`}><span className="status-dot" />{row.result}</span></span><span className="score-cell">{row.score}<small>/100</small></span><span className="time-cell">{row.time}</span><button className="row-more" aria-label={`More options for ${row.name}`} onClick={() => toast.info("Activity actions are coming soon.")}><MoreHorizontal size={16} /></button></div>)}</div></section>
+          <section className="history-section card reveal"><div className="history-heading"><div><div className="section-kicker"><span className="kicker-bar" /> RECENT ACTIVITY</div><h3>Your latest checks</h3></div><button className="text-button" onClick={() => toast.info("Showing the latest 3 checks in this demo.")}>View all <ArrowUpRight size={14} /></button></div><div className="history-table"><div className="history-header"><span>Source</span><span>Item</span><span>Result</span><span>Score</span><span>Checked</span><span /></div>{historyRows.map((row) => <div className="history-row" key={row.name}><span><span className={`source-icon source-${row.type.toLowerCase()}`}>{row.type === "URL" ? <Link2 size={14} /> : row.type === "QR" ? <QrCode size={14} /> : <MessageSquareText size={14} />}</span>{row.type}</span><strong>{row.name}</strong><span><span className={`table-result result-${row.result.toLowerCase()}`}><span className="status-dot" />{row.result}</span></span><span className="score-cell">{row.score}<small>/100</small></span><span className="time-cell">{row.time}</span><button className="row-more" aria-label={`More options for ${row.name}`} onClick={() => toast.info(`Activity details for ${row.name}`, { description: `${row.result} · score ${row.score}/100 · checked ${row.time}` })}><MoreHorizontal size={16} /></button></div>)}</div></section>
 
-          <footer className="app-footer"><span><span className="footer-shield"><Shield size={12} /></span> PayGuard AI</span><span>Stateless by design · Built for safer UPI moments</span><span>v1.4.0 <span className="footer-separator">·</span> <button onClick={() => toast.info("API documentation is coming soon.")}>API docs</button></span></footer>
+          <footer className="app-footer"><span><span className="footer-shield"><Shield size={12} /></span> PayGuard AI</span><span>Stateless by design · Built for safer UPI moments</span><span>v1.4.0 <span className="footer-separator">·</span> <button onClick={() => toast.info("API contract", { description: "POST /api/v1/analyze accepts image uploads, SMS/text, URLs, and camera frames." })}>API docs</button></span></footer>
         </main>
       </div>
 

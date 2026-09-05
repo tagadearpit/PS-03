@@ -11,6 +11,8 @@ PayGuard AI is a warm, executive-style verification studio for checking UPI paym
 - Live System Monitor simulator for demonstrating background SMS and QR interception flows.
 - Recent activity table, keyboard-accessible controls, mobile navigation, reduced-motion support, and toast feedback.
 - Email/password login and account-creation pages with protected studio and history routes.
+- Strict sign-in gating across all product feature routes; signup collects name, age, email, and password.
+- URL and message validation plus live-camera frame capture for Gemini image analysis.
 - Dedicated auth artwork for login and signup, plus a clearer left-to-right architecture visual.
 - Warm English cream design system with Playfair Display, DM Sans, and DM Mono typography.
 - FastAPI backend in `backend/` with Gemini structured output, OCR/QR dependencies, CORS, health checks, and trace logging.

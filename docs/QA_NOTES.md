@@ -20,3 +20,9 @@ The frontend typecheck and production build pass after adding `client/src/lib/ap
 ## Loading-state QA
 
 While a Gemini request is pending, the risk review now shows an animated circular loading skeleton and the signal breakdown shows three shimmer rows. The previous result is replaced only after the response arrives, and the returned assessment enters with a short translate-and-fade transition. The UI also validates missing image input before making a request. TypeScript, production build, and backend Python compilation pass after the loading-state repair.
+
+## Authentication and scanning QA
+
+The product feature routes now require a signed-in session. A first-time email submitted to Login is rejected with an explicit create-account prompt; Signup requires name, age, email, and password. The dashboard greeting and profile identity use the stored account name instead of a hard-coded visitor.
+
+The Verification Studio validates complete SMS or WhatsApp text before submission, accepts only valid HTTP/HTTPS URLs, prevents empty camera analysis, and captures a real live-camera frame as an image upload for backend inspection. Image uploads continue through local OCR/QR extraction plus multimodal Gemini review. Activity history, risk rules, settings, and API documentation controls now provide useful actions or explanations instead of coming-soon placeholders.
