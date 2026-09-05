@@ -49,14 +49,14 @@ class Threat(BaseModel):
     severity: str = Field(pattern="^(safe|suspicious|high)$")
 
 class UpiDetails(BaseModel):
-    upi_id: Optional[str] = None
-    display_name: Optional[str] = None
-    phone_number: Optional[str] = None
-    amount: Optional[str] = None
-    currency: Optional[str] = None
-    note: Optional[str] = None
-    merchant_code: Optional[str] = None
-    confidence: str = Field(default="low", pattern="^(low|medium|high)$")
+    upi_id: Optional[str]
+    display_name: Optional[str]
+    phone_number: Optional[str]
+    amount: Optional[str]
+    currency: Optional[str]
+    note: Optional[str]
+    merchant_code: Optional[str]
+    confidence: str = Field(pattern="^(low|medium|high)$")
 
 class GeminiAssessment(BaseModel):
     score: int = Field(ge=0, le=100)
@@ -67,8 +67,8 @@ class GeminiAssessment(BaseModel):
     action_detail: str
     entity: str
     threats: list[Threat]
-    upi_details: Optional[UpiDetails] = None
-    plain_english: str = ""
+    upi_details: Optional[UpiDetails]
+    plain_english: str
 
 class AnalyzeResponse(GeminiAssessment):
     source: str

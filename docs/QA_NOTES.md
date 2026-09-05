@@ -32,3 +32,7 @@ The Verification Studio validates complete SMS or WhatsApp text before submissio
 The analysis contract now returns evidence-backed `upi_details` for UPI URIs, VPAs, phone numbers, payee names, amounts, notes, currency, and merchant codes when visible in text, OCR, or decoded QR data. The backend never invents missing identity fields and labels extraction confidence. The frontend displays the details in a dedicated payment-information card and includes a clear confirmation disclaimer.
 
 The Explain in plain English control now expands the Gemini-provided detailed explanation, with a deterministic summary/action fallback for simulator data. Frontend typecheck, production build, and backend bytecode compilation pass after the response-contract update.
+
+## Render Gemini schema fix
+
+Render live logs showed the service was healthy but Gemini rejected the response schema because Pydantic response fields had defaults. The Gemini response models now declare required schema properties without defaults; nullable UPI fields remain explicitly nullable, and the endpoint fills safe fallback values after the model response. Backend syntax and frontend typecheck/production build pass after this correction.
