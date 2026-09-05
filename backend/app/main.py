@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import time
+from urllib.parse import parse_qs, unquote, urlparse
 import uuid
 from contextvars import ContextVar
 from io import BytesIO
@@ -47,6 +48,16 @@ class Threat(BaseModel):
     detail: str
     severity: str = Field(pattern="^(safe|suspicious|high)$")
 
+class UpiDetails(BaseModel):
+    upi_id: Optional[str] = None
+    display_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    amount: Optional[str] = None
+    currency: Optional[str] = None
+    note: Optional[str] = None
+    merchant_code: Optional[str] = None
+    confidence: str = Field(default="low", pattern="^(low|medium|high)$")
+
 class GeminiAssessment(BaseModel):
     score: int = Field(ge=0, le=100)
     severity: str = Field(pattern="^(safe|suspicious|high)$")
@@ -56,6 +67,8 @@ class GeminiAssessment(BaseModel):
     action_detail: str
     entity: str
     threats: list[Threat]
+    upi_details: Optional[UpiDetails] = None
+    plain_english: str = ""
 
 class AnalyzeResponse(GeminiAssessment):
     source: str
@@ -86,11 +99,41 @@ async def trace_requests(request, call_next):
 
 def prompt_for(input_type: str, content: str) -> str:
     if input_type == "image":
-        return f"""You are PayGuard AI, a careful UPI scam detection analyst for India. Analyze the supplied image and extracted evidence. Reason specifically about QR-encoded UPI links, including the payee VPA and amount for scam patterns; OCR text such as KYC, refund, OTP, urgency, impersonation of banks/NPCI/government, or payment requests; and visual branding cues in the image itself, including fake bank logos, cloned layouts, badges, and misleading domains. Be conservative: never claim certainty, but clearly identify risk and an actionable next step. Return only JSON matching the supplied schema. Keep the explanation plain English and actionable.
+        return f"""You are PayGuard AI, a careful UPI scam detection analyst for India. Analyze the supplied image and extracted evidence. Reason specifically about QR-encoded UPI links, including the payee VPA and amount for scam patterns; OCR text such as KYC, refund, OTP, urgency, impersonation of banks/NPCI/government, or payment requests; and visual branding cues in the image itself, including fake bank logos, cloned layouts, badges, and misleading domains. Be conservative: never claim certainty, but clearly identify risk and an actionable next step. Return only JSON matching the supplied schema. Include `plain_english` as a more detailed, calm explanation of what the user should understand and do. If a UPI ID, UPI URI, phone number, payee name, amount, note, or merchant code is visible, populate `upi_details` only with evidence from the input; use null for unknown fields. Never invent an identity. Keep the explanation plain English and actionable.
 
 Extracted evidence:
 {content}"""
-    return f"""You are PayGuard AI, a careful UPI scam detection analyst for India. Analyze the following {input_type} input. Be conservative: never claim certainty, but clearly identify urgency, impersonation, requests for PIN/OTP, suspicious domains, collect requests, and intent mismatch. Return only JSON matching the supplied schema. Keep the explanation plain English and actionable. Input:\n{content}"""
+    return f"""You are PayGuard AI, a careful UPI scam detection analyst for India. Analyze the following {input_type} input. Be conservative: never claim certainty, but clearly identify urgency, impersonation, requests for PIN/OTP, suspicious domains, collect requests, and intent mismatch. Return only JSON matching the supplied schema. Include `plain_english` as a more detailed, calm explanation of what the user should understand and do. If a UPI ID, UPI URI, phone number, payee name, amount, note, or merchant code is visible, populate `upi_details` only with evidence from the input; use null for unknown fields. Never invent an identity. Keep the explanation plain English and actionable. Input:\n{content}"""
+
+def extract_upi_details(content: str) -> Optional[UpiDetails]:
+    """Extract evidence-backed UPI identity and payment fields from text or QR payloads."""
+    raw = unquote(content or "")
+    upi_id = None
+    display_name = None
+    phone_number = None
+    amount = None
+    currency = None
+    note = None
+    merchant_code = None
+    uri_match = re.search(r"upi://pay\?[^\s]+", raw, flags=re.IGNORECASE)
+    if uri_match:
+        parsed = urlparse(uri_match.group(0))
+        params = {key: values[0] for key, values in parse_qs(parsed.query).items() if values}
+        upi_id = params.get("pa")
+        display_name = params.get("pn")
+        amount = params.get("am")
+        currency = params.get("cu")
+        note = params.get("tn")
+        merchant_code = params.get("mc")
+    if not upi_id:
+        vpa_match = re.search(r"\b[\w.\-]{2,}@[a-zA-Z][\w.-]{2,}\b", raw)
+        upi_id = vpa_match.group(0) if vpa_match else None
+    phone_match = re.search(r"(?<!\d)(?:\+91[- .]?)?[6-9]\d{9}(?!\d)", raw)
+    phone_number = phone_match.group(0) if phone_match else None
+    if not any([upi_id, display_name, phone_number, amount, note, merchant_code]):
+        return None
+    confidence = "high" if upi_id and (display_name or amount or note) else "medium" if upi_id else "low"
+    return UpiDetails(upi_id=upi_id, display_name=display_name, phone_number=phone_number, amount=amount, currency=currency, note=note, merchant_code=merchant_code, confidence=confidence)
 
 async def call_gemini(input_type: str, content: str, image_bytes: Optional[bytes] = None, image_mime_type: Optional[str] = None) -> GeminiAssessment:
     api_key = os.getenv("GEMINI_API_KEY")
@@ -174,4 +217,19 @@ async def analyze(raw_request: Request, file: Optional[UploadFile] = File(defaul
         urls = re.findall(r"https?://[^\s]+", content)
         logger.info("Extracted URLs: %s", urls, extra={"stage": "LINK_ANALYSIS"})
     assessment = await call_gemini(input_type, content, image_payload, image_mime_type)
+    extracted_upi = extract_upi_details(content)
+    if extracted_upi:
+        model_upi = assessment.upi_details
+        assessment.upi_details = UpiDetails(
+            upi_id=extracted_upi.upi_id or (model_upi.upi_id if model_upi else None),
+            display_name=extracted_upi.display_name or (model_upi.display_name if model_upi else None),
+            phone_number=extracted_upi.phone_number or (model_upi.phone_number if model_upi else None),
+            amount=extracted_upi.amount or (model_upi.amount if model_upi else None),
+            currency=extracted_upi.currency or (model_upi.currency if model_upi else None),
+            note=extracted_upi.note or (model_upi.note if model_upi else None),
+            merchant_code=extracted_upi.merchant_code or (model_upi.merchant_code if model_upi else None),
+            confidence=extracted_upi.confidence,
+        )
+    if not assessment.plain_english:
+        assessment.plain_english = assessment.summary + " " + assessment.action_detail
     return AnalyzeResponse(**assessment.model_dump(), source=source, timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), trace_id=trace_context.get())

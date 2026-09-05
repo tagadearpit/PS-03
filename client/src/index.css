@@ -243,3 +243,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 
 .forgot-link { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: -6px; color: #a96122; font-size: 10px; font-weight: 700; text-decoration: none; }.forgot-link:hover { color: #704014; }.nav-logout { width: 28px; height: 28px; padding: 0; border: 1px solid #e0d1c1; border-radius: 7px; background: #f7eee5; cursor: pointer; }.nav-logout:hover { color: #8e3f2e; border-color: #d4b4a4; background: #f4e5dc; }.dark .nav-logout { border-color: #604732; background: #423127; }.dark .nav-logout:hover { color: #f1b29b; background: #50342d; }
 @media (max-width: 600px) { .site-nav-actions .nav-signin { display: none; }.site-nav-actions .nav-logout { display: grid; } }
+
+/* UPI identity extraction and plain-English explanation */
+.upi-details-card { margin-top: 14px; padding: 15px; border: 1px solid color-mix(in srgb, var(--border) 76%, #b7791f 24%); border-radius: 16px; background: color-mix(in srgb, var(--card) 90%, #f5e8d3 10%); }
+.upi-details-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.upi-details-heading h4 { margin: 4px 0 0; font-size: 15px; }
+.confidence-badge { padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.confidence-high { color: #396c4c; background: #e5f2e8; }
+.confidence-medium { color: #8a5b1b; background: #fff0d6; }
+.confidence-low { color: #765f57; background: #eee8e1; }
+.upi-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.upi-details-grid div { min-width: 0; padding: 9px 10px; border-radius: 10px; background: color-mix(in srgb, var(--background) 82%, transparent); }
+.upi-details-grid span { display: block; color: var(--muted-foreground); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+.upi-details-grid strong { display: block; overflow: hidden; margin-top: 4px; color: var(--foreground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.upi-disclaimer { margin: 12px 0 0; color: var(--muted-foreground); font-size: 11px; line-height: 1.45; }
+.plain-english-panel { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 13px 14px; border-radius: 12px; color: var(--foreground); background: color-mix(in srgb, #e8f0ea 66%, var(--card) 34%); }
+.plain-english-panel svg { flex: 0 0 auto; margin-top: 2px; color: #4f7d5d; }
+.plain-english-panel p { margin: 0; font-size: 13px; line-height: 1.55; }
+.dark .upi-details-card { background: color-mix(in srgb, var(--card) 92%, #5b452c 8%); }
+.dark .confidence-high { color: #b7e2bf; background: #203c2a; }
+.dark .confidence-medium { color: #f4cc8a; background: #4c371c; }
+.dark .confidence-low { color: #d5c5b6; background: #3b3430; }
+.dark .plain-english-panel { background: color-mix(in srgb, #203c2a 48%, var(--card) 52%); }
+@media (max-width: 560px) { .upi-details-grid { grid-template-columns: 1fr; } .upi-details-heading { flex-direction: column; } }

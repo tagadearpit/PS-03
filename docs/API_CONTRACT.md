@@ -26,6 +26,17 @@ For an image upload, send a multipart field named `file` and include `input_type
   "action_detail": "Always verify the merchant name before approving a payment.",
   "source": "Payment QR",
   "entity": "Blue Tokai Coffee",
+  "upi_details": {
+    "upi_id": "bluetokai@icici",
+    "display_name": "Blue Tokai Coffee",
+    "phone_number": null,
+    "amount": "420.00",
+    "currency": "INR",
+    "note": "Coffee",
+    "merchant_code": null,
+    "confidence": "high"
+  },
+  "plain_english": "This payment identity is visible in the QR evidence. Confirm the payee name and amount independently before approving.",
   "threats": [
     {
       "title": "Verified VPA format",

@@ -50,6 +50,17 @@ type Threat = {
   icon: typeof Shield;
 };
 
+type UpiDetails = {
+  upi_id?: string | null;
+  display_name?: string | null;
+  phone_number?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  note?: string | null;
+  merchant_code?: string | null;
+  confidence?: "low" | "medium" | "high";
+};
+
 type AnalysisResult = {
   score: number;
   severity: Severity;
@@ -60,6 +71,8 @@ type AnalysisResult = {
   source: string;
   entity: string;
   threats: Threat[];
+  upiDetails?: UpiDetails | null;
+  plainEnglish?: string;
   timestamp: string;
 };
 
@@ -93,6 +106,8 @@ const initialResult: AnalysisResult = {
       icon: BadgeCheck,
     },
   ],
+  plainEnglish: "This payment identity looks consistent with the visible merchant context. Review the payee name and amount before approving anything.",
+  upiDetails: { upi_id: "bluetokai@icici", display_name: "Blue Tokai Coffee", amount: "420.00", currency: "INR", confidence: "high" },
   timestamp: "Just now",
 };
 
@@ -222,6 +237,7 @@ export default function Home() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(initialResult);
   const [toastMessage, setToastMessage] = useState("Awaiting next input");
+  const [explanationOpen, setExplanationOpen] = useState(false);
   const [activityCount, setActivityCount] = useState(7);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -281,6 +297,7 @@ export default function Home() {
         setResult(nextResult);
         setAnalyzing(false);
         setActivityCount((count) => count + 1);
+        setExplanationOpen(false);
         setToastMessage("Analysis complete");
         toast.success("Risk analysis complete", { description: "Your result is ready in the risk breakdown." });
       }, 620);
@@ -307,8 +324,9 @@ export default function Home() {
       } else {
         backendResult = await analyzeWithBackend({ inputType: mode === "text" ? "text" : "url", content: mode === "text" ? textValue.trim() : urlValue.trim() });
       }
-      setResult({ ...backendResult, actionDetail: backendResult.action_detail, timestamp: backendResult.timestamp, threats: backendResult.threats.map((threat) => ({ ...threat, icon: threat.severity === "safe" ? CheckCircle2 : threat.severity === "suspicious" ? AlertTriangle : ShieldAlert })) });
+      setResult({ ...backendResult, actionDetail: backendResult.action_detail, timestamp: backendResult.timestamp, plainEnglish: backendResult.plain_english || `${backendResult.summary} ${backendResult.action_detail}`, upiDetails: backendResult.upi_details, threats: backendResult.threats.map((threat) => ({ ...threat, icon: threat.severity === "safe" ? CheckCircle2 : threat.severity === "suspicious" ? AlertTriangle : ShieldAlert })) });
       setActivityCount((count) => count + 1);
+      setExplanationOpen(false);
       setToastMessage("Gemini analysis complete");
       toast.success("Gemini risk analysis complete", { description: "The backend returned a structured assessment." });
     } catch (error) {
@@ -409,10 +427,10 @@ export default function Home() {
             <div className="insight-column">
               <div className={`risk-card card reveal severity-${result.severity}`}>
                 <div className="risk-card-top"><div><div className="section-kicker"><span className="kicker-bar" /> LIVE RISK REVIEW</div><h3>Current assessment</h3></div><StatusPill severity={result.severity}>{result.label}</StatusPill></div>
-                <>{analyzing ? <div className="analysis-loading" aria-live="polite" aria-label="Gemini analysis in progress"><div className="loading-gauge"><span /></div><div className="loading-copy"><span className="skeleton skeleton-kicker" /><span className="skeleton skeleton-title" /><span className="skeleton skeleton-line" /><span className="skeleton skeleton-line short" /></div></div> : <><div className="risk-content result-reveal"><RiskGauge score={result.score} severity={result.severity} /><div className="risk-copy"><p className="risk-label">{result.source}</p><h4>{result.entity}</h4><p>{result.summary}</p></div></div><div className="action-banner result-reveal"><div className="action-icon">{result.severity === "safe" ? <CheckCircle2 size={17} /> : <ShieldAlert size={17} />}</div><div><strong>{result.action}</strong><span>{result.actionDetail}</span></div></div></>}</>
+                <>{analyzing ? <div className="analysis-loading" aria-live="polite" aria-label="Gemini analysis in progress"><div className="loading-gauge"><span /></div><div className="loading-copy"><span className="skeleton skeleton-kicker" /><span className="skeleton skeleton-title" /><span className="skeleton skeleton-line" /><span className="skeleton skeleton-line short" /></div></div> : <><div className="risk-content result-reveal"><RiskGauge score={result.score} severity={result.severity} /><div className="risk-copy"><p className="risk-label">{result.source}</p><h4>{result.entity}</h4><p>{result.summary}</p></div></div><div className="action-banner result-reveal"><div className="action-icon">{result.severity === "safe" ? <CheckCircle2 size={17} /> : <ShieldAlert size={17} />}</div><div><strong>{result.action}</strong><span>{result.actionDetail}</span></div></div>{result.upiDetails && <div className="upi-details-card result-reveal"><div className="upi-details-heading"><div><div className="section-kicker"><span className="kicker-bar" /> UPI IDENTITY FOUND</div><h4>Payment information</h4></div><span className={`confidence-badge confidence-${result.upiDetails.confidence || "low"}`}>{result.upiDetails.confidence || "low"} confidence</span></div><div className="upi-details-grid">{result.upiDetails.display_name && <div><span>Name</span><strong>{result.upiDetails.display_name}</strong></div>}{result.upiDetails.upi_id && <div><span>UPI ID</span><strong>{result.upiDetails.upi_id}</strong></div>}{result.upiDetails.phone_number && <div><span>Phone number</span><strong>{result.upiDetails.phone_number}</strong></div>}{result.upiDetails.amount && <div><span>Amount</span><strong>{result.upiDetails.currency || "INR"} {result.upiDetails.amount}</strong></div>}{result.upiDetails.note && <div><span>Payment note</span><strong>{result.upiDetails.note}</strong></div>}{result.upiDetails.merchant_code && <div><span>Merchant code</span><strong>{result.upiDetails.merchant_code}</strong></div>}</div><p className="upi-disclaimer">Shown only from QR/OCR/text evidence. Confirm the recipient independently before paying.</p></div>}</>}</>
               </div>
 
-              <div className="breakdown-card card reveal"><div className="breakdown-heading"><div><div className="section-kicker"><span className="kicker-bar" /> SIGNAL BREAKDOWN</div><h3>Why this score?</h3></div><button className="icon-button small" onClick={() => toast.info("Each signal combines local heuristics with semantic review.")} aria-label="Signal breakdown info"><HelpCircle size={16} /></button></div>{analyzing ? <div className="threat-list skeleton-list" aria-hidden="true">{[1, 2, 3].map((item) => <div className="threat-row" key={item}><span className="skeleton skeleton-icon" /><span className="skeleton-list-copy"><span className="skeleton skeleton-line" /><span className="skeleton skeleton-line short" /></span><span className="skeleton skeleton-tag" /></div>)}</div> : <><div className="threat-list result-reveal">{result.threats.map((threat) => { const ThreatIcon = threat.icon; return <div className="threat-row" key={threat.title}><div className={`threat-icon threat-${threat.severity}`}><ThreatIcon size={15} /></div><div className="threat-copy"><strong>{threat.title}</strong><span>{threat.detail}</span></div><span className={`threat-tag threat-${threat.severity}`}>{threat.severity === "safe" ? "Clear" : threat.severity === "suspicious" ? "Review" : "Alert"}</span></div>; })}</div><button className="explain-button result-reveal" onClick={() => toast.info("Plain-English explanation copied to your workspace.")}><Sparkles size={14} /> Explain in plain English <ArrowUpRight size={14} /></button></>}</div>
+              <div className="breakdown-card card reveal"><div className="breakdown-heading"><div><div className="section-kicker"><span className="kicker-bar" /> SIGNAL BREAKDOWN</div><h3>Why this score?</h3></div><button className="icon-button small" onClick={() => toast.info("Each signal combines local heuristics with semantic review.")} aria-label="Signal breakdown info"><HelpCircle size={16} /></button></div>{analyzing ? <div className="threat-list skeleton-list" aria-hidden="true">{[1, 2, 3].map((item) => <div className="threat-row" key={item}><span className="skeleton skeleton-icon" /><span className="skeleton-list-copy"><span className="skeleton skeleton-line" /><span className="skeleton skeleton-line short" /></span><span className="skeleton skeleton-tag" /></div>)}</div> : <><div className="threat-list result-reveal">{result.threats.map((threat) => { const ThreatIcon = threat.icon; return <div className="threat-row" key={threat.title}><div className={`threat-icon threat-${threat.severity}`}><ThreatIcon size={15} /></div><div className="threat-copy"><strong>{threat.title}</strong><span>{threat.detail}</span></div><span className={`threat-tag threat-${threat.severity}`}>{threat.severity === "safe" ? "Clear" : threat.severity === "suspicious" ? "Review" : "Alert"}</span></div>; })}</div><button className="explain-button result-reveal" onClick={() => setExplanationOpen((open) => !open)}><Sparkles size={14} /> {explanationOpen ? "Hide plain-English explanation" : "Explain in plain English"} <ArrowUpRight size={14} /></button>{explanationOpen && <div className="plain-english-panel result-reveal"><Sparkles size={15} /><p>{result.plainEnglish || `${result.summary} ${result.actionDetail}`}</p></div>}</>}</div>
             </div>
           </section>
 

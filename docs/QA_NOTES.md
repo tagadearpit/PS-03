@@ -26,3 +26,9 @@ While a Gemini request is pending, the risk review now shows an animated circula
 The product feature routes now require a signed-in session. A first-time email submitted to Login is rejected with an explicit create-account prompt; Signup requires name, age, email, and password. The dashboard greeting and profile identity use the stored account name instead of a hard-coded visitor.
 
 The Verification Studio validates complete SMS or WhatsApp text before submission, accepts only valid HTTP/HTTPS URLs, prevents empty camera analysis, and captures a real live-camera frame as an image upload for backend inspection. Image uploads continue through local OCR/QR extraction plus multimodal Gemini review. Activity history, risk rules, settings, and API documentation controls now provide useful actions or explanations instead of coming-soon placeholders.
+
+## UPI identity and explanation QA
+
+The analysis contract now returns evidence-backed `upi_details` for UPI URIs, VPAs, phone numbers, payee names, amounts, notes, currency, and merchant codes when visible in text, OCR, or decoded QR data. The backend never invents missing identity fields and labels extraction confidence. The frontend displays the details in a dedicated payment-information card and includes a clear confirmation disclaimer.
+
+The Explain in plain English control now expands the Gemini-provided detailed explanation, with a deterministic summary/action fallback for simulator data. Frontend typecheck, production build, and backend bytecode compilation pass after the response-contract update.

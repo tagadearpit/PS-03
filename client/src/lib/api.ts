@@ -14,6 +14,17 @@ export type ApiAnalysis = {
   threats: { title: string; detail: string; severity: "safe" | "suspicious" | "high" }[];
   timestamp: string;
   trace_id: string;
+  plain_english: string;
+  upi_details?: {
+    upi_id?: string | null;
+    display_name?: string | null;
+    phone_number?: string | null;
+    amount?: string | null;
+    currency?: string | null;
+    note?: string | null;
+    merchant_code?: string | null;
+    confidence?: "low" | "medium" | "high";
+  } | null;
 };
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
