@@ -160,7 +160,7 @@ async def call_gemini(input_type: str, content: str, image_bytes: Optional[bytes
     logger.info("Gemini returned score=%s severity=%s", assessment.score, assessment.severity, extra={"stage": "SEMANTIC_EVAL"})
     return assessment
 
-@app.get("/health")
+@app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "gemini": "configured" if os.getenv("GEMINI_API_KEY") else "missing"}
 
